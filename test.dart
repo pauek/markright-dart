@@ -98,4 +98,17 @@ void main() {
       expect(result.toString(), equals(t.output));
     }
   });
+
+  test("just a test", () {
+    var result = [];
+    var w = markright.Walker();
+    var funcs = {
+      "test": (e) => result.add('$e'),
+      "hi": (e) => result.add('$e'),
+      "\$text": (e) => result.add('text[$e]'),
+    };
+    var mr = markright.parse('@test hola @hi');
+    w.walk(mr, funcs);
+    expect(result, equals(['@*test', 'text[" hola "]', '@*hi']));
+  });
 }

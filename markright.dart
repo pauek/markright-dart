@@ -91,8 +91,12 @@ class Command extends ListElement {
   List<String> args = [];
   Delimiters delim = Delimiters();
 
-  Command(this.cmd, this.args) : inline = false, super([]);
-  Command.inline() : inline = true, super([]);
+  Command(this.cmd, this.args)
+      : inline = false,
+        super([]);
+  Command.inline()
+      : inline = true,
+        super([]);
 
   toString() {
     String _inline = '';
@@ -262,9 +266,77 @@ class Parser {
       this.addToParent(elem, line.level);
       emptyLine = false;
     }
-    return this.stack[0].children;
+    return this.stack[0];
   }
 }
 
 final _parser = new Parser();
 parse(String input) => _parser.parse(input);
+
+class Walker {
+  Map<String, Function> commandFuncs = {};
+  List<String> stack = [];
+
+  push(x) => stack.add(x);
+  pop() => stack.removeAt(stack.length - 1);
+
+  bool invoke(fnName, x) {
+    if (commandFuncs.containsKey(fnName)) {
+      commandFuncs[fnName](x);
+      return true;
+    }
+    return false;
+  }
+
+  bool inEnv(List cmdNames) {
+    var i = 0;
+    for (int k = 0; k < this.stack.length; k++) {
+      if (this.stack[k] == cmdNames[i]) i++;
+    }
+    return i == cmdNames.length;
+  }
+
+  line(elems) {
+    for (var e in elems) {
+      if (e is Command) {
+        invoke(e.cmd, e);
+      } else {
+        invoke('\$text', e);
+      }
+    }
+  }
+
+  walkElem(e) {
+    if (e == null) {
+      invoke('\$null', null);
+    } else if (e is Command) {
+      push(e.cmd);
+      if (!invoke(e.cmd, e)) {
+        invoke('\$command', e);
+      }
+      pop();
+    } else if (e is TextElement) {
+      invoke('\$text', e);
+    } else if (e is ListElement) {
+      push('\$line');
+      invoke('\$line', e);
+      line(e.children);
+      pop();
+    }
+  }
+
+  walk(mr, [commandFuncs = null]) {
+    var oldCommandFuncs = <String, Function>{}..addAll(this.commandFuncs);
+    if (commandFuncs != null) {
+      this.commandFuncs.addAll(commandFuncs);
+    }
+    if (mr != null) {
+      if (mr is ListElement) {
+        mr.children.forEach(walkElem);
+      } else {
+        walkElem(mr);
+      }
+    }
+    this.commandFuncs = oldCommandFuncs;
+  }
+}
