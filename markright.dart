@@ -95,6 +95,10 @@ class Command extends ListElement {
   Command.inline() : inline = true, super([]);
 
   toString() {
+    String _inline = '';
+    if (inline) {
+      _inline = '*';
+    }
     String _children = '';
     if (children != null && children.length > 0) {
       _children = '{${children.map((x) => x.toString()).join(', ')}}';
@@ -103,7 +107,7 @@ class Command extends ListElement {
     if (args != null && args.length > 0) {
       _args = '(${args.join(', ')})';
     }
-    return '@$cmd$_args$_children';
+    return '@$_inline$cmd$_args$_children';
   }
 }
 
@@ -261,3 +265,6 @@ class Parser {
     return this.stack[0].children;
   }
 }
+
+final _parser = new Parser();
+parse(String input) => _parser.parse(input);
