@@ -217,7 +217,6 @@ class Parser {
       this.stack.add(cmd);
     } else {
       this.stack[level + 1] = cmd;
-      this.stack = this.stack.sublist(level + 2);
     }
     return cmd;
   }
@@ -239,14 +238,19 @@ class Parser {
         } else {
           // Accept lines with excess indentation
           line.level = this.stack.length - 1;
-          ln = ln.substring(2 * line.level);
+          line.text = ln.substring(2 * line.level);
         }
       }
       Element elem;
       if (cmd != null) {
         elem = this.parseCommand(line.level, cmd.id, cmd.args);
       } else {
-        elem = ListElement(this.parseLine(line.text, null).elems);
+        var result = this.parseLine(line.text, null).elems;
+        if (result.length == 1) {
+          elem = result.first;
+        } else {
+          elem = ListElement(result);
+        }
       }
       if (emptyLine) {
         this.addToParent(null, line.level);

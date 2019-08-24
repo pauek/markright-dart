@@ -31,6 +31,63 @@ final tests = [
   Test(
     input: '@mycmd(  a   ,   b,    c   ) @two @three',
     output: '[[@mycmd(a, b, c), " ", @two, " ", @three]]',
+  ),
+  Test(
+    input: '''
+    
+@eat-empty-lines-at-the-beginning
+''',
+    output: '[@eat-empty-lines-at-the-beginning]',
+  ),
+  Test(
+    input: '''
+@something
+  
+  Also eat the first null child
+''',
+    output: '[@something{"Also eat the first null child"}]',
+  ),
+  Test(input: '''
+@main
+  @a
+  @b
+  @c
+''', output: '[@main{@a, @b, @c}]'),
+  Test(
+    input: '''
+@first
+  @a
+@second
+  @b
+''',
+    output: '[@first{@a}, @second{@b}]',
+  ),
+  Test(
+    input: '''
+@command
+  1st
+    2nd
+  3rd
+''',
+    output: '[@command{"1st", "  2nd", "3rd"}]',
+  ),
+  Test(
+    input: '''
+@command
+    1st
+    2nd
+  3rd
+''',
+    output: '[@command{"  1st", "  2nd", "3rd"}]',
+  ),
+  Test(
+    input: '''
+@main
+  abc
+
+  def
+''',
+    output: '[@main{"abc", null, "def"}]',
   )
 ];
 
