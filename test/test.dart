@@ -108,8 +108,6 @@ void main() {
     };
     var mr = markright.parse('@test hola @hi');
     var result = w.walk(mr, funcs);
-    expect(
-        result.toString(),
-        equals('[[@*test, " hola ", @*hi]]'));
+    expect(result.toString(), equals('[[@*test, " hola ", @*hi]]'));
   });
 }

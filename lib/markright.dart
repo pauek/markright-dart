@@ -2,8 +2,9 @@ const DEFAULT_CONTROL_CHARACTER = '@';
 const DELIMITERS = '{}[]<>';
 const TAB_WIDTH = 2;
 
-final openDelimiters =
-    [for (int i = 0; i < DELIMITERS.length; i += 2) DELIMITERS[i]].join('');
+final openDelimiters = [
+  for (int i = 0; i < DELIMITERS.length; i += 2) DELIMITERS[i]
+].join('');
 
 bool foundIn(String text, String ch) => text.indexOf(ch) != -1;
 bool isDelimiter(ch) => foundIn(DELIMITERS, ch);
@@ -190,7 +191,8 @@ class Parser {
     var i = 0;
 
     atControl() => text[i] == this.controlChar;
-    closeDelimAt(k) => (closeDelim != null && isCharAt(text, closeDelim, k));
+    closeDelimAt(k) =>
+        (closeDelim != null && isCharAt(text, closeDelim, k));
     nextIsControl() => text[i + 1] == this.controlChar;
     lastChar() => (i + 1 == text.length) || closeDelimAt(i + 1);
 
@@ -293,6 +295,18 @@ class ListElem<T> extends Elem<T> {
   ListElem(T value) : super(value);
   List<Elem<T>> children = [];
   toString() => '[${children.map((e) => e.toString()).join(', ')}]';
+
+  List<T> get values {
+    List<T> result = [];
+    for (var elem in children) {
+      if (elem is SingleElem<T>) {
+        result.add(elem.value);
+      } else if (elem is ListElem<T>) {
+        result.addAll(elem.values);
+      }
+    }
+    return result;
+  }
 }
 
 class Walker<T> {
@@ -312,23 +326,30 @@ class Walker<T> {
 
   Elem<T> _invoke(fnName, e, [args = null]) {
     if (commandFuncs.containsKey(fnName)) {
-      return SingleElem<T>(commandFuncs[fnName](e, args));
+      var result = commandFuncs[fnName](e, args);
+      if (result != null) {
+        return SingleElem<T>(result);
+      }
     }
     return null;
   }
 
-  Elem<T> _walkList(elems) {
+  ListElem<T> _walkList(elems) {
     var result = ListElem<T>(null);
     for (var e in elems) {
       var r = _walk(e);
+      if (r == null) {
+        continue;
+      }
       if (r is SingleElem<T>) {
         result.children.add(r);
       } else if (r is ListElem<T>) {
+        /*
         if (r.children.length == 1) {
           result.children.add(r.children[0]);
-        } else {
-          result.children.add(r);
-        }
+        } else {*/
+        result.children.add(r);
+        // }
       }
     }
     return result;
@@ -350,8 +371,8 @@ class Walker<T> {
 
   Elem<T> _walkLine(e) {
     push('\$line');
-    _invoke('\$line', e);
-    ListElem<T> result = _walkList(e.children);
+    ListElem<T> childResults = _walkList(e.children);
+    var result = _invoke('\$line', e, childResults);
     pop();
     return result;
   }
@@ -376,7 +397,8 @@ class Walker<T> {
   }
 
   Elem<T> walk(mr, [commandFuncs = null]) {
-    var oldCommandFuncs = <String, Function>{}..addAll(this.commandFuncs);
+    var oldCommandFuncs = <String, Function>{}
+      ..addAll(this.commandFuncs);
     if (commandFuncs != null) {
       this.commandFuncs.addAll(commandFuncs);
     }
