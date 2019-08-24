@@ -13,16 +13,16 @@ final tests = [
   ),
   Test(
     input: '@a@b@c',
-    output: '[[@a, @b, @c]]',
+    output: '[[@*a, @*b, @*c]]',
   ),
   Test(
     input: '@a  @b@c',
-    output: '[[@a, "  ", @b, @c]]',
+    output: '[[@*a, "  ", @*b, @*c]]',
   ),
   Test(
     input: '''@a@b@c
 @d@e''',
-    output: '[[@a, @b, @c], [@d, @e]]',
+    output: '[[@*a, @*b, @*c], [@*d, @*e]]',
   ),
   Test(
     input: '@mycmd(  a   ,   b,    c   )',
@@ -30,14 +30,14 @@ final tests = [
   ),
   Test(
     input: '@mycmd(  a   ,   b,    c   ) @two @three',
-    output: '[[@mycmd(a, b, c), " ", @two, " ", @three]]',
+    output: '[[@*mycmd(a, b, c), " ", @*two, " ", @*three]]',
   ),
   Test(
     input: '''
     
-@eat-empty-lines-at-the-beginning
+@eatemptylinesatthebeginning
 ''',
-    output: '[@eat-empty-lines-at-the-beginning]',
+    output: '[@eatemptylinesatthebeginning]',
   ),
   Test(
     input: '''
@@ -94,8 +94,7 @@ final tests = [
 void main() {
   test("parser returns something", () {
     for (var t in tests) {
-      var parser = markright.Parser();
-      var result = parser.parse(t.input);
+      var result = markright.parse(t.input);
       expect(result.toString(), equals(t.output));
     }
   });
