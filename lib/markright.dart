@@ -58,7 +58,7 @@ class ParseLineResult {
 }
 
 class ParseInlineCommandResult {
-  final Command cmd;
+  final CommandElement cmd;
   final int end;
   ParseInlineCommandResult(this.cmd, this.end);
 }
@@ -67,7 +67,7 @@ abstract class Element {
   List<Element> get children;
 }
 
-class EmptyLine extends Element {
+class EmptyElement extends Element {
   List<Element> get children => [];
   toString() => 'null';
 }
@@ -85,16 +85,20 @@ class ListElement extends Element {
   toString() => '[${children.map((x) => x.toString()).join(', ')}]';
 }
 
-class Command extends ListElement {
+class LineElement extends ListElement {
+  LineElement(List<Element> lst) : super(lst);
+}
+
+class CommandElement extends ListElement {
   bool inline;
   String cmd = '';
   List<String> args = [];
   Delimiters delim = Delimiters();
 
-  Command(this.cmd, this.args)
+  CommandElement(this.cmd, this.args)
       : inline = false,
         super([]);
-  Command.inline()
+  CommandElement.inline()
       : inline = true,
         super([]);
 
@@ -133,7 +137,7 @@ class Parser {
   }
 
   parseInlineCommand(String text, i, closeDelim) {
-    var C = Command.inline();
+    var C = CommandElement.inline();
     final stopAt = ' @()' + DELIMITERS;
     while (i < text.length && !foundIn(stopAt, text[i])) {
       C.cmd += text[i++];
@@ -220,7 +224,7 @@ class Parser {
     if (args != null) {
       arglist.addAll(args.split(',').map((x) => x.trim()));
     }
-    final cmd = Command(id, arglist);
+    final cmd = CommandElement(id, arglist);
     if (level == this.stack.length - 1) {
       this.stack.add(cmd);
     } else {
@@ -257,7 +261,7 @@ class Parser {
         if (result.length == 1) {
           elem = result.first;
         } else {
-          elem = ListElement(result);
+          elem = LineElement(result);
         }
       }
       if (emptyLine) {
@@ -273,20 +277,30 @@ class Parser {
 final _parser = new Parser();
 parse(String input) => _parser.parse(input);
 
-class Walker {
+abstract class Elem<T> {
+  T value;
+  Elem(this.value);
+  List<Elem<T>> get children;
+}
+
+class SingleElem<T> extends Elem<T> {
+  SingleElem(T value) : super(value);
+  List<Elem<T>> get children => null;
+  toString() => '$value';
+}
+
+class ListElem<T> extends Elem<T> {
+  ListElem(T value) : super(value);
+  List<Elem<T>> children = [];
+  toString() => '[${children.map((e) => e.toString()).join(', ')}]';
+}
+
+class Walker<T> {
   Map<String, Function> commandFuncs = {};
   List<String> stack = [];
 
   push(x) => stack.add(x);
   pop() => stack.removeAt(stack.length - 1);
-
-  bool invoke(fnName, x) {
-    if (commandFuncs.containsKey(fnName)) {
-      commandFuncs[fnName](x);
-      return true;
-    }
-    return false;
-  }
 
   bool inEnv(List cmdNames) {
     var i = 0;
@@ -296,47 +310,78 @@ class Walker {
     return i == cmdNames.length;
   }
 
-  line(elems) {
+  Elem<T> _invoke(fnName, e, [args = null]) {
+    if (commandFuncs.containsKey(fnName)) {
+      return SingleElem<T>(commandFuncs[fnName](e, args));
+    }
+    return null;
+  }
+
+  Elem<T> _walkList(elems) {
+    var result = ListElem<T>(null);
     for (var e in elems) {
-      if (e is Command) {
-        invoke(e.cmd, e);
-      } else {
-        invoke('\$text', e);
+      var r = _walk(e);
+      if (r is SingleElem<T>) {
+        result.children.add(r);
+      } else if (r is ListElem<T>) {
+        if (r.children.length == 1) {
+          result.children.add(r.children[0]);
+        } else {
+          result.children.add(r);
+        }
       }
     }
+    return result;
   }
 
-  walkElem(e) {
+  Elem<T> _walkEmpty(e) => _invoke('\$null', null);
+  Elem<T> _walkText(e) => _invoke('\$text', e);
+
+  Elem<T> _walkCommand(e) {
+    push(e.cmd);
+    var childResults = _walkList(e.children);
+    var result = _invoke(e.cmd, e, childResults);
+    if (result == null) {
+      result = _invoke('\$command', e, childResults);
+    }
+    pop();
+    return result;
+  }
+
+  Elem<T> _walkLine(e) {
+    push('\$line');
+    _invoke('\$line', e);
+    ListElem<T> result = _walkList(e.children);
+    pop();
+    return result;
+  }
+
+  Elem<T> _walk(e) {
     if (e == null) {
-      invoke('\$null', null);
-    } else if (e is Command) {
-      push(e.cmd);
-      if (!invoke(e.cmd, e)) {
-        invoke('\$command', e);
-      }
-      pop();
+      return null;
+    } else if (e is EmptyElement) {
+      return _walkEmpty(e);
+    } else if (e is CommandElement) {
+      return _walkCommand(e);
     } else if (e is TextElement) {
-      invoke('\$text', e);
+      return _walkText(e);
+    } else if (e is LineElement) {
+      return _walkLine(e);
     } else if (e is ListElement) {
-      push('\$line');
-      invoke('\$line', e);
-      line(e.children);
-      pop();
+      return _walkList(e.children);
+    } else {
+      assert(false);
+      return null;
     }
   }
 
-  walk(mr, [commandFuncs = null]) {
+  Elem<T> walk(mr, [commandFuncs = null]) {
     var oldCommandFuncs = <String, Function>{}..addAll(this.commandFuncs);
     if (commandFuncs != null) {
       this.commandFuncs.addAll(commandFuncs);
     }
-    if (mr != null) {
-      if (mr is ListElement) {
-        mr.children.forEach(walkElem);
-      } else {
-        walkElem(mr);
-      }
-    }
+    var result = _walk(mr);
     this.commandFuncs = oldCommandFuncs;
+    return result;
   }
 }

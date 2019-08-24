@@ -1,4 +1,4 @@
-import 'markright.dart' as markright;
+import 'package:markright/markright.dart' as markright;
 import 'package:test/test.dart';
 
 class Test {
@@ -100,15 +100,16 @@ void main() {
   });
 
   test("just a test", () {
-    var result = [];
-    var w = markright.Walker();
+    var w = markright.Walker<String>();
     var funcs = {
-      "test": (e) => result.add('$e'),
-      "hi": (e) => result.add('$e'),
-      "\$text": (e) => result.add('text[$e]'),
+      "test": (e, args) => '${e}',
+      "hi": (e, args) => '$e',
+      "\$text": (e, args) => '"${e.text}"',
     };
     var mr = markright.parse('@test hola @hi');
-    w.walk(mr, funcs);
-    expect(result, equals(['@*test', 'text[" hola "]', '@*hi']));
+    var result = w.walk(mr, funcs);
+    expect(
+        result.toString(),
+        equals('[[@*test, " hola ", @*hi]]'));
   });
 }
