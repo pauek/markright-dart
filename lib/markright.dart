@@ -155,7 +155,6 @@ class Parser {
     }
     if (i < text.length && text[i] == '(') {
       var arg = '';
-      i++;
       while (text[++i] != ')') {
         if (i >= text.length) {
           error('End of string while parsing args');
