@@ -241,6 +241,7 @@ class Parser {
       this.stack.add(cmd);
     } else {
       this.stack[level + 1] = cmd;
+      this.stack.removeRange(level + 2, this.stack.length);
     }
     return cmd;
   }
