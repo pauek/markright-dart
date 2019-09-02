@@ -47,7 +47,7 @@ class FullLineCommand {
 }
 
 FullLineCommand getFullLineCommand(line) {
-  var m = RegExp(r'@([a-z]+)(\((.*)\))?$').matchAsPrefix(line);
+  var m = RegExp(r'@([a-z]+)(\((.*)\))?\s*$').matchAsPrefix(line);
   if (m == null) {
     return null;
   }
