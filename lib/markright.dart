@@ -271,11 +271,11 @@ class Parser {
         elem = this.parseCommand(line.level, cmd.id, cmd.args);
       } else {
         var result = this.parseLine(line.text, null).elems;
-        if (result.length == 1) {
-          elem = result.first;
-        } else {
+        // if (result.length == 1) {
+        //   elem = result.first;
+        // } else {
           elem = LineElement(result);
-        }
+        // }
       }
       if (emptyLine) {
         this.addToParent(null, line.level);
@@ -300,7 +300,12 @@ class Walker<T> {
   bool inEnv(List cmdNames) {
     var i = 0;
     for (int k = 0; k < this.stack.length; k++) {
-      if (this.stack[k] == cmdNames[i]) i++;
+      if (this.stack[k] == cmdNames[i]) {
+        i++;
+        if (i >= cmdNames.length) {
+          break;
+        }
+      }
     }
     return i == cmdNames.length;
   }
@@ -355,6 +360,7 @@ class Walker<T> {
   }
 
   T _walk(e) {
+    // print('${this.stack} $e');
     if (e == null) {
       return null;
     } else if (e is EmptyElement) {
