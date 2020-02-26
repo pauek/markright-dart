@@ -1,4 +1,5 @@
 import 'package:markright/markright.dart' as markright;
+import 'package:markright/walk.dart';
 import 'package:test/test.dart';
 
 class Test {
@@ -100,7 +101,7 @@ void main() {
   });
 
   test("just a test", () {
-    var w = markright.Walker<String>();
+    var w = Walker<String>();
     var funcs = {
       "test": (e, args) => '${e}',
       "hi": (e, args) => '$e',

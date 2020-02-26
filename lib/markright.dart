@@ -1,3 +1,6 @@
+
+import 'package:markright/elements.dart';
+
 const DEFAULT_CONTROL_CHARACTER = '@';
 const DELIMITERS = '{}[]<>';
 const TAB_WIDTH = 2;
@@ -23,38 +26,10 @@ class Line {
   Line(this.level, this.text);
 }
 
-Line parseIndentation(str) {
-  var match = RegExp(r'^(\s*)(.*)$').matchAsPrefix(str);
-  String space = match.group(1);
-  String text = match.group(2);
-  if (space.length % 2 == 1) {
-    error("Indentation is not a multiple of TAB_WIDTH"
-        " (= ${TAB_WIDTH}): '${str}'");
-  }
-  final int level = space.length ~/ 2;
-  return Line(level, text);
-}
-
-class Delimiters {
-  String open, close;
-  Delimiters({this.open, this.close});
-}
-
 class FullLineCommand {
   String id;
   List<String> args;
   FullLineCommand(this.id, this.args);
-}
-
-FullLineCommand getFullLineCommand(line) {
-  var m = RegExp(r'@([a-z]+)(\((.*)\))?\s*$').matchAsPrefix(line);
-  if (m == null) {
-    return null;
-  }
-  final cmd = m.group(1);
-  final args = m.group(3);
-  final argList = (args != null ? args.split(',') : <String>[]);
-  return FullLineCommand(cmd, argList);
 }
 
 class ParseLineResult {
@@ -68,78 +43,18 @@ class ParseInlineCommandResult {
   ParseInlineCommandResult(this.cmd, this.end);
 }
 
-abstract class Element {
-  List<Element> get children;
-}
 
-class EmptyElement extends Element {
-  List<Element> get children => [];
-  toString() => 'null';
-}
-
-class TextElement extends Element {
-  String text;
-  TextElement(this.text);
-  List<Element> get children => [];
-  toString() => '"$text"';
-}
-
-class ListElement extends Element {
-  List<Element> children;
-  ListElement(this.children);
-  toString() => '[${children.map((x) => x.toString()).join(', ')}]';
-}
-
-class RootElement extends ListElement {
-  RootElement(List<Element> list) : super(list);
-  toString() => '<root>' + super.toString();
-}
-
-class LineElement extends ListElement {
-  LineElement(List<Element> lst) : super(lst);
-}
-
-class CommandElement extends ListElement {
-  bool inline;
-  String cmd = '';
-  List<String> args = [];
-  Delimiters delim = Delimiters();
-
-  CommandElement(this.cmd, this.args)
-      : inline = false,
-        super([]);
-  CommandElement.inline()
-      : inline = true,
-        super([]);
-
-  toString() {
-    String _inline = '';
-    if (inline) {
-      _inline = '*';
-    }
-    String _children = '';
-    if (children != null && children.length > 0) {
-      _children = '{${children.map((x) => x.toString()).join(', ')}}';
-    }
-    String _args = '';
-    if (args != null && args.length > 0) {
-      _args = '(${args.join(', ')})';
-    }
-    return '@$_inline$cmd$_args$_children';
-  }
-}
-
-class Parser {
+class _Parser {
   final Map<String, Function> commandFuncs;
   final String controlChar;
   List<Element> stack;
 
-  Parser({
+  _Parser({
     this.commandFuncs = const {},
     this.controlChar = DEFAULT_CONTROL_CHARACTER,
   });
 
-  addToParent(Element x, int level) {
+  _addToParent(Element x, int level) {
     final parent = this.stack[level];
     if (x == null && parent.children.length == 0) {
       return;
@@ -147,7 +62,30 @@ class Parser {
     parent.children.add(x);
   }
 
-  parseInlineCommand(String text, i, closeDelim) {
+  Line _parseIndentation(str) {
+    var match = RegExp(r'^(\s*)(.*)$').matchAsPrefix(str);
+    String space = match.group(1);
+    String text = match.group(2);
+    if (space.length % 2 == 1) {
+      error("Indentation is not a multiple of TAB_WIDTH"
+          " (= ${TAB_WIDTH}): '${str}'");
+    }
+    final int level = space.length ~/ 2;
+    return Line(level, text);
+  }
+
+  FullLineCommand _getFullLineCommand(line) {
+    var m = RegExp(r'@([a-z]+)(\((.*)\))?\s*$').matchAsPrefix(line);
+    if (m == null) {
+      return null;
+    }
+    final cmd = m.group(1);
+    final args = m.group(3);
+    final argList = (args != null ? args.split(',') : <String>[]);
+    return FullLineCommand(cmd, argList);
+  }
+
+  _parseInlineCommand(String text, i, closeDelim) {
     var C = CommandElement.inline();
     final stopAt = ' @()' + DELIMITERS;
     while (i < text.length && !foundIn(stopAt, text[i])) {
@@ -183,7 +121,7 @@ class Parser {
         C.delim.open += text[i++];
       }
       C.delim.close = closeDelimFor(delimChar) * C.delim.open.length;
-      var result = this.parseLine(text.substring(i), C.delim.close);
+      var result = this._parseLine(text.substring(i), C.delim.close);
       C.children = result.elems;
       i += result.end;
       if (!isCharAt(text, C.delim.close, i)) {
@@ -194,7 +132,7 @@ class Parser {
     return ParseInlineCommandResult(C, end);
   }
 
-  ParseLineResult parseLine(String text, String closeDelim) {
+  ParseLineResult _parseLine(String text, String closeDelim) {
     var result = ParseLineResult();
     var curr = '';
     var i = 0;
@@ -216,7 +154,7 @@ class Parser {
           result.elems.add(TextElement(curr));
           curr = '';
         }
-        var ret = this.parseInlineCommand(text, i + 1, closeDelim);
+        var ret = this._parseInlineCommand(text, i + 1, closeDelim);
         result.elems.add(ret.cmd);
         i = ret.end;
       } else {
@@ -230,7 +168,7 @@ class Parser {
     return result;
   }
 
-  CommandElement parseCommand(
+  CommandElement _parseCommand(
       int level, String id, List<String> args) {
     List<String> arglist = [];
     if (args != null) {
@@ -246,7 +184,7 @@ class Parser {
     return cmd;
   }
 
-  parse(String input) {
+  _parse(String input) {
     final lines = input.split('\n');
     this.stack = [RootElement([])];
     var emptyLine = false;
@@ -255,8 +193,8 @@ class Parser {
         emptyLine = true;
         continue;
       }
-      Line line = parseIndentation(ln);
-      final cmd = getFullLineCommand(line.text);
+      Line line = _parseIndentation(ln);
+      final cmd = _getFullLineCommand(line.text);
       if (line.level > this.stack.length - 1) {
         if (cmd != null) {
           error('Indentation level too deep at: "${ln}"');
@@ -268,125 +206,25 @@ class Parser {
       }
       Element elem;
       if (cmd != null) {
-        elem = this.parseCommand(line.level, cmd.id, cmd.args);
+        elem = this._parseCommand(line.level, cmd.id, cmd.args);
       } else {
-        var result = this.parseLine(line.text, null).elems;
+        var result = this._parseLine(line.text, null).elems;
         // if (result.length == 1) {
         //   elem = result.first;
         // } else {
-          elem = LineElement(result);
+        elem = LineElement(result);
         // }
       }
       if (emptyLine) {
-        this.addToParent(null, line.level);
+        this._addToParent(null, line.level);
       }
-      this.addToParent(elem, line.level);
+      this._addToParent(elem, line.level);
       emptyLine = false;
     }
     return this.stack[0];
   }
 }
 
-final _parser = new Parser();
-parse(String input) => _parser.parse(input);
+final _parser = new _Parser();
+parse(String input) => _parser._parse(input);
 
-class Walker<T> {
-  Map<String, Function> commandFuncs = {};
-  List<String> stack = [];
-
-  push(x) => stack.add(x);
-  pop() => stack.removeAt(stack.length - 1);
-
-  bool inEnv(List cmdNames) {
-    var i = 0;
-    for (int k = 0; k < this.stack.length; k++) {
-      if (this.stack[k] == cmdNames[i]) {
-        i++;
-        if (i >= cmdNames.length) {
-          break;
-        }
-      }
-    }
-    return i == cmdNames.length;
-  }
-
-  T _invoke(fnName, Element e, List<String> args, children) {
-    if (commandFuncs.containsKey(fnName)) {
-      final T result = commandFuncs[fnName](e, args, children);
-      if (result != null) {
-        return result;
-      }
-    }
-    return null;
-  }
-
-  List<T> _walkList(elems) {
-    List<T> result = [];
-    for (var e in elems) {
-      final T r = _walk(e);
-      if (r == null) {
-        continue;
-      }
-      result.add(r);
-    }
-    return result;
-  }
-
-  T _walkEmpty(e) => _invoke('\$null', e, null, null);
-  T _walkText(e) => _invoke('\$text', e, null, e.text);
-
-  T _walkCommand(e) {
-    push(e.cmd);
-    var childResults = _walkList(e.children);
-    var result = _invoke(e.cmd, e, e.args, childResults);
-    if (result == null) {
-      result = _invoke('\$command', e, e.args, childResults);
-    }
-    pop();
-    return result;
-  }
-
-  T _walkLine(e) {
-    push('\$line');
-    List<T> childResults = _walkList(e.children);
-    T result = _invoke('\$line', e, null, childResults);
-    pop();
-    return result;
-  }
-
-  T _walkRoot(e) {
-    var childResults = _walkList(e.children);
-    return _invoke('\$root', null, null, childResults);
-  }
-
-  T _walk(e) {
-    // print('${this.stack} $e');
-    if (e == null) {
-      return null;
-    } else if (e is EmptyElement) {
-      return _walkEmpty(e);
-    } else if (e is CommandElement) {
-      return _walkCommand(e);
-    } else if (e is TextElement) {
-      return _walkText(e);
-    } else if (e is LineElement) {
-      return _walkLine(e);
-    } else if (e is RootElement) {
-      return _walkRoot(e);
-    } else {
-      assert(false);
-      return null;
-    }
-  }
-
-  T walk(mr, [commandFuncs = null]) {
-    var oldCommandFuncs = <String, Function>{}
-      ..addAll(this.commandFuncs);
-    if (commandFuncs != null) {
-      this.commandFuncs.addAll(commandFuncs);
-    }
-    final T result = _walk(mr);
-    this.commandFuncs = oldCommandFuncs;
-    return result;
-  }
-}
