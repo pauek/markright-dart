@@ -1,6 +1,5 @@
 import 'package:markright/markright.dart' as markright;
 import 'package:markright/walk.dart';
-import 'package:test/test.dart';
 
 class Test {
   String input, output;
